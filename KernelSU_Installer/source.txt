@@ -1,0 +1,1 @@
+https://github.com/tiann/KernelSU/releases/tag/v2.1.2

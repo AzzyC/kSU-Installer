@@ -1,0 +1,245 @@
+#!/system/bin/sh
+
+# ******************************************************
+# Description: 	KSU Installer script for OrangeFox Recovery
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2025 The OrangeFox Recovery Project
+# Author: 	DarthJabba9, KoaaN
+# Date: 	22 November 2025
+# ******************************************************
+
+# last_modified
+MOD_DATE="20251122";
+
+# what we're installing
+TARGET="SukiSU";
+
+# whether to print extra debug messages
+FOX_INSTALLER_DEBUG_MODE=0;
+
+# if set, then trace the commands before executing them (verbose!)
+if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+   set -o xtrace;
+fi
+
+# the display screen
+SCREEN=/proc/self/fd/$2;
+
+# the current zip installer
+ZIPFILE="$3";
+
+# the ksu loadable module file name
+FNAME="";
+
+# the partition to be used
+PART="";
+
+# do we have ksud?
+KSUD=$(which ksud);
+
+# detect attempts to flash from Magisk app
+BOOTMODE=false;
+ps | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
+$BOOTMODE || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
+
+# temp directory
+$BOOTMODE && TMP_DIR=/dev/tmp || TMP_DIR=/tmp;
+mkdir -p $TMP_DIR;
+
+# the zip extract directory
+EX_DIR=$TMP_DIR/ofox_ksu_installer;
+
+# ui_print "<message>" ["<message 2>" ...]
+ui_print() {
+  if [ "$BOOTMODE" = "true" ]; then
+  	echo "$1";
+  else
+  	until [ ! "$1" ]; do
+    		echo -e "ui_print $1\nui_print" >> $SCREEN;
+    		shift;
+  	done
+  fi
+}
+
+# cleanup the temporary installation path
+cleanup() {
+   rm -rf $EX_DIR;
+}
+
+# abort [<message>]
+abort() {
+   ui_print "$*";
+   cleanup;
+   ERROR_CODE=1;
+   exit 1;
+}
+
+# do we have a virtual A/B device?
+is_VAB() {
+	if [ "$FOX_VIRTUAL_AB_DEVICE" = "1" -o "$(getprop ro.orangefox.virtual_ab)" = "1" -o "$(getprop ro.virtual_ab.enabled)" = "true" ]; then
+		echo "1";
+	else
+		echo "0";
+	fi
+}
+
+# unzip the installer package into tmp_dir
+Unzip_Installer_Package() {
+   mkdir -p $TMP_DIR;
+   cd $TMP_DIR;
+   rm -rf $EX_DIR;
+   mkdir -p $EX_DIR;
+   cd $EX_DIR;
+   unzip -o "$ZIPFILE";
+}
+
+# try to determine the current kernel kmi
+find_kernel_kmi() {
+	# start with ksud
+	local SUPPORTED_KERNEL=$(ksud boot-info current-kmi 2>/dev/null);
+	if [ "$?" = "0" -a -n "$SUPPORTED_KERNEL" ]; then
+		echo "$SUPPORTED_KERNEL";
+		return;
+	fi
+
+	# any spoofing prop?
+	SUPPORTED_KERNEL=$(getprop "ro.orangefox.spoof.kernelsu.current-kmi");
+	if [ -n "$SUPPORTED_KERNEL" ]; then
+		echo "$SUPPORTED_KERNEL";
+		return;
+	fi
+	
+	# try parsing uname
+	local kernel_ver=$(uname -r);
+	local dot=".";
+	local kernel_ver_num=$(echo "${kernel_ver%$dot*}");          # remove all after last dot; prints: just the number (eg, 5.15)
+	local an_ver=$(echo ${kernel_ver#*android} | sed 's/-.*//'); # remove all before "android" and after the last "-"; prints: "13","14","15", etc
+	local has_ver=$(echo $kernel_ver | grep "android");          # is there an android version in the kernel string (eg, "android15")?
+	local android_version=android"$an_ver";						 # eg, "android15"
+	local tmp;
+	local tmp2;
+	local supported_kmi;
+
+	supported_kmi=$(ksud boot-info supported-kmis);		 		# eg, "android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6"
+	if [ "$?" != "0" ]; then
+		supported_kmi=$(ksud boot-info supported-kmi);			# try the old v 1.x syntax !
+	fi
+
+	# if the kernel string doesn't have "android" in it, just use the ver_num
+	if [ -z "$has_ver" ]; then
+		android_version="$kernel_ver_num";
+	else
+	# check for whether there are still random hyphens (malformed kernel strings)
+		kernel_ver_num=$(echo "${kernel_ver_num%-*}"); # remove all after the last "-"
+		kernel_ver_num=$(echo "${kernel_ver_num#*-}"); # remove all before the first "-"
+	fi
+
+	# iterate through supported kmis and return the correct match, if any
+	for kmi in $supported_kmi
+	do
+		tmp=$(echo $kmi | grep $kernel_ver_num);
+		tmp2=$(echo $kmi | grep $android_version);
+		if [ -n "$tmp" -a -n "$tmp2" ]; then
+			echo "$kmi";
+			return;
+		fi
+	done
+
+	# nothing we can potentially work with
+	echo "unknown";
+}
+
+# check some prerequisites
+CheckRequirements() {
+	ui_print "Checking for ksud";
+	if [ -z "$KSUD" ]; then
+		KSUD=$EX_DIR/ksud; # look in this zip installer
+		[ ! -e "$KSUD" ] && KSUD=/sdcard/Fox/FoxFiles/ksud; # look in /sdcard/Fox/FoxFiles
+		[ ! -e "$KSUD" ] && KSUD=/sdcard/Fox/ksud; # look in /sdcard/Fox/
+		[ ! -e "$KSUD" ] && KSUD=/sdcard/ksud; # look in /sdcard/
+		if [ -e "$KSUD" ]; then
+			cp "$KSUD" /sbin/;
+			chmod 0755 /sbin/ksud;
+		else
+			abort "Error: 'ksud' cannot be located. Aborting ...";
+		fi
+	fi
+	
+	ui_print "Checking kernel version";
+	local KERNEL_VERSION=$(uname -r 2>/dev/null);
+	
+	# get the current kmi version
+	local SUPPORTED_KERNEL=$(find_kernel_kmi);
+
+	# does the ksu module exist in this zip installer?
+	FNAME="$EX_DIR"/$SUPPORTED_KERNEL"_kernelsu.ko";
+	[ ! -e $FNAME ] && FNAME="$EX_DIR/$SUPPORTED_KERNEL"; # did someone spoof the actual module name (eg "android15-6.6_kernelsu.ko")?
+	if [ ! -e $FNAME ]; then
+		abort "Error: Incompatible kernel ($KERNEL_VERSION). Aborting ...";
+	else
+		ui_print "Kernel version OK: $KERNEL_VERSION";
+	fi
+
+	# detect the init_boot partition, else resort to the boot partition
+	PART=/dev/block/bootdevice/by-name/init_boot_a;
+	if [ -e $PART ]; then
+		PART=init_boot;
+	else
+		PART=boot;
+	fi
+}
+
+# do the actual installation
+do_install() {
+	ui_print "Patching and flashing $PART partition with $TARGET";
+	if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+		ui_print "CMD=ksud boot-patch --module $FNAME --flash";
+	fi
+
+	ksud boot-patch --module $FNAME --flash;
+	if [ $? -ne 0 ]; then
+		abort "Error: The installation failed! Check '/tmp/recovery.log' for details.";
+	fi	
+
+	ui_print "$TARGET patch complete";
+
+	# cleanup after ourselves and exit cleanly
+	cleanup;
+	exit 0;
+}
+
+# main function
+Main() {
+	ui_print "*******************************************";
+	ui_print "*** |OrangeFox Recovery Project Addon|  ***";
+	ui_print "***   |SukiSU Installer|            *******";
+	ui_print "***   |By The OrangeFox Team|     *********";
+	ui_print "***   |Installer V:$MOD_DATE|      *********";
+	ui_print "*******************************************";
+	ui_print " ";
+
+# are we running on Android?
+	if [ "$BOOTMODE" = "true" ]; then
+		ui_print "- OrangeFox Addon installation: running on Android."
+		abort "- This installation mode is not supported. Aborting ..."
+	fi
+
+# check for VAB
+	local tmp=$(is_VAB);
+	if [ "$tmp" != "1" ]; then
+		abort "Unsupported device (not virtual_AB). Aborting ...";
+	fi
+
+# extract the zip installer
+	Unzip_Installer_Package;
+
+# check other requirements
+	CheckRequirements;
+
+# do the installation
+	do_install;
+}
+
+# ----- main ----#
+Main;
+#
