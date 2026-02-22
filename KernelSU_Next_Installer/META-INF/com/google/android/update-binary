@@ -5,11 +5,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The OrangeFox Recovery Project
 # Author: 	DarthJabba9, KoaaN, AzzyC
-# Date: 	27 January 2026
+# Date: 	22 February 2026
 # ******************************************************
 
 # last_modified
-MOD_DATE="20260127";
+MOD_DATE="20260222";
 
 # what we're installing
 TARGET="KernelSU"; # default
