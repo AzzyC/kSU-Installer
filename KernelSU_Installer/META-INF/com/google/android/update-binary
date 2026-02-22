@@ -3,16 +3,16 @@
 # ******************************************************
 # Description: 	KSU Installer script for OrangeFox Recovery
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (C) 2025 The OrangeFox Recovery Project
-# Author: 	DarthJabba9, KoaaN
-# Date: 	22 November 2025
+# Copyright (C) 2026 The OrangeFox Recovery Project
+# Author: 	DarthJabba9, KoaaN, AzzyC
+# Date: 	27 January 2026
 # ******************************************************
 
 # last_modified
-MOD_DATE="20251122";
+MOD_DATE="20260127";
 
 # what we're installing
-TARGET="KernelSU";
+TARGET="KernelSU"; # default
 
 # whether to print extra debug messages
 FOX_INSTALLER_DEBUG_MODE=0;
@@ -111,15 +111,15 @@ find_kernel_kmi() {
 	
 	# try parsing uname
 	local kernel_ver=$(uname -r);
-	local dot=".";
-	local kernel_ver_num=$(echo "${kernel_ver%$dot*}");          # remove all after last dot; prints: just the number (eg, 5.15)
+	local kernel_ver_num=$(echo "$kernel_ver" | cut -d. -f1-2);  # remove all after second dot; prints only kernel major.minor version (eg, 5.15)
 	local an_ver=$(echo ${kernel_ver#*android} | sed 's/-.*//'); # remove all before "android" and after the last "-"; prints: "13","14","15", etc
 	local has_ver=$(echo $kernel_ver | grep "android");          # is there an android version in the kernel string (eg, "android15")?
 	local android_version=android"$an_ver";						 # eg, "android15"
 	local tmp;
 	local tmp2;
-
 	local supported_kmi;
+	local matches;
+
 	supported_kmi=$(ksud boot-info supported-kmis);		 		# eg, "android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6"
 	if [ "$?" != "0" ]; then
 		supported_kmi=$(ksud boot-info supported-kmi);			# try the old v 1.x syntax !
@@ -137,16 +137,42 @@ find_kernel_kmi() {
 	# iterate through supported kmis and return the correct match, if any
 	for kmi in $supported_kmi
 	do
-		tmp=$(echo $kmi | grep $kernel_ver_num);
+		tmp=$(echo $kmi | grep $kernel_ver_num$);
 		tmp2=$(echo $kmi | grep $android_version);
 		if [ -n "$tmp" -a -n "$tmp2" ]; then
-			echo "$kmi";
-			return;
+			matches="$matches $kmi"; # append each kmi match to an array variable
 		fi
 	done
 
+	# check how many kmi matches
+	set -- $matches
+	if [ "$#" -eq 1 ]; then
+		echo "$1";					 # from the matches array, return the first and only match 
+		return;
+	fi
+
 	# nothing we can potentially work with
 	echo "unknown";
+}
+
+# identify what we're installing (default = "KernelSU")
+get_target() {
+local VALID_TARGETS="KernelSU_Suki KernelSU_Next KernelSU";
+local i;
+	for i in $VALID_TARGETS 
+	do
+		if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+			ui_print "target=$i [zip file=$ZIPFILE]";
+		fi
+
+		if echo "$ZIPFILE" | grep -qs "$i"; then
+			TARGET="$i";
+			if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+				ui_print "RESULT=\"$TARGET\"";
+			fi
+			return;
+		fi
+	done
 }
 
 # check some prerequisites
@@ -196,6 +222,10 @@ do_install() {
 		ui_print "CMD=ksud boot-patch --module $FNAME --flash";
 	fi
 
+	# prevent: - Install Error: create temp dir failed
+	# prevent: No such file or directory (os error 2) at path "/data/local/tmp/KernelSUm9aFoq"
+	mkdir -p /data/local/tmp; # ensure temp dir exists before calling ksud
+
 	ksud boot-patch --module $FNAME --flash;
 	if [ $? -ne 0 ]; then
 		abort "Error: The installation failed! Check '/tmp/recovery.log' for details.";
@@ -210,9 +240,13 @@ do_install() {
 
 # main function
 Main() {
+# get the correct target (for display purposes)
+	get_target;
+
+# start
 	ui_print "*******************************************";
 	ui_print "*** |OrangeFox Recovery Project Addon|  ***";
-	ui_print "***   |KernelSU Installer|          *******";
+	ui_print "***   |$TARGET Installer|                  ";
 	ui_print "***   |By The OrangeFox Team|     *********";
 	ui_print "***   |Installer V:$MOD_DATE|      *********";
 	ui_print "*******************************************";

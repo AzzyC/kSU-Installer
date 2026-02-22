@@ -4,15 +4,15 @@
 # Description: 	KSU Installer script for OrangeFox Recovery
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The OrangeFox Recovery Project
-# Author: 	DarthJabba9, KoaaN
-# Date: 	26 January 2026
+# Author: 	DarthJabba9, KoaaN, AzzyC
+# Date: 	27 January 2026
 # ******************************************************
 
 # last_modified
-MOD_DATE="20260126";
+MOD_DATE="20260127";
 
 # what we're installing
-TARGET="KernelSU-Next";
+TARGET="KernelSU"; # default
 
 # whether to print extra debug messages
 FOX_INSTALLER_DEBUG_MODE=0;
@@ -155,6 +155,26 @@ find_kernel_kmi() {
 	echo "unknown";
 }
 
+# identify what we're installing (default = "KernelSU")
+get_target() {
+local VALID_TARGETS="KernelSU_Suki KernelSU_Next KernelSU";
+local i;
+	for i in $VALID_TARGETS 
+	do
+		if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+			ui_print "target=$i [zip file=$ZIPFILE]";
+		fi
+
+		if echo "$ZIPFILE" | grep -qs "$i"; then
+			TARGET="$i";
+			if [ "$FOX_INSTALLER_DEBUG_MODE" = "1" ]; then
+				ui_print "RESULT=\"$TARGET\"";
+			fi
+			return;
+		fi
+	done
+}
+
 # check some prerequisites
 CheckRequirements() {
 	ui_print "Checking for ksud";
@@ -220,9 +240,13 @@ do_install() {
 
 # main function
 Main() {
+# get the correct target (for display purposes)
+	get_target;
+
+# start
 	ui_print "*******************************************";
 	ui_print "*** |OrangeFox Recovery Project Addon|  ***";
-	ui_print "***   |KernelSU-Next Installer|     *******";
+	ui_print "***   |$TARGET Installer|                  ";
 	ui_print "***   |By The OrangeFox Team|     *********";
 	ui_print "***   |Installer V:$MOD_DATE|      *********";
 	ui_print "*******************************************";

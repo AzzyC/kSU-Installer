@@ -1,0 +1,33 @@
+Manifest-Version: 1.0
+Created-By: 1.0 (Android SignApk)
+
+Name: META-INF/com/google/android/updater-script
+SHA1-Digest: tMlIJoEnSXCnFpqa7StAAaAoHlE=
+
+Name: android14-6.1_kernelsu.ko
+SHA1-Digest: bTyD1SicoAjTf3KAxN9WNF1zIiU=
+
+Name: android14-5.15_kernelsu.ko
+SHA1-Digest: 1al2NoTVJDpa9Zed3BRi0UONxv0=
+
+Name: source.txt
+SHA1-Digest: PUAB9qSrseQ8VmMKEiMuq3P/Wls=
+
+Name: android12-5.10_kernelsu.ko
+SHA1-Digest: dfVBlvkvbO+0538sqfVS/BjDYTY=
+
+Name: android15-6.6_kernelsu.ko
+SHA1-Digest: de+phWZv9aVdlx8e7CCrrO5UtMc=
+
+Name: META-INF/com/google/android/update-binary
+SHA1-Digest: 3aZnCTnGxYv8Ipr7VBDGDtZKY7k=
+
+Name: android13-5.10_kernelsu.ko
+SHA1-Digest: 4JGYjsVIzAdufVJ7rhRD9u9+xww=
+
+Name: android13-5.15_kernelsu.ko
+SHA1-Digest: I6v3Y7mNqiq2f9itQPUOoLG9l50=
+
+Name: android16-6.12_kernelsu.ko
+SHA1-Digest: EJ6ftvtH2nqiTDROalcay5sRzHg=
+
