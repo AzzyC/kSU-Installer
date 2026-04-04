@@ -9,7 +9,7 @@
 # ******************************************************
 
 # last_modified
-MOD_DATE="20260222";
+MOD_DATE="20260404";
 
 # what we're installing
 TARGET="KernelSU"; # default
