@@ -1,3 +1,6 @@
+v3.2.2
+https://github.com/tiann/KernelSU/releases/tag/v3.2.2
+
 v3.1.0:
 https://github.com/tiann/KernelSU/releases/tag/v3.1.0
 
