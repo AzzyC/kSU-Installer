@@ -5,11 +5,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The OrangeFox Recovery Project
 # Author: 	DarthJabba9, KoaaN, AzzyC
-# Date: 	22 February 2026
+# Date: 	26 April 2026
 # ******************************************************
 
 # last_modified
-MOD_DATE="20260404";
+MOD_DATE="20260426";
 
 # what we're installing
 TARGET="KernelSU"; # default
@@ -224,7 +224,13 @@ do_install() {
 
 	# prevent: - Install Error: create temp dir failed
 	# prevent: No such file or directory (os error 2) at path "/data/local/tmp/KernelSUm9aFoq"
-	mkdir -p /data/local/tmp; # ensure temp dir exists before calling ksud
+	# Do NOT touch /data here, especially before first Android boot
+	KSU_TMP="$TMP_DIR/ksud_tmp";
+	rm -rf "$KSU_TMP";
+	mkdir -p "$KSU_TMP"; # ensure temp dir exists before calling ksud
+	export TMPDIR="$KSU_TMP";
+	export TEMP="$KSU_TMP";
+	export TMP="$KSU_TMP";
 
 	ksud boot-patch --module $FNAME --flash;
 	if [ $? -ne 0 ]; then
